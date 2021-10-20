@@ -1,0 +1,53 @@
+free c:channel.
+
+type pkey.
+type skey.
+type rand.
+
+fun aenc(bitstring,pkey,rand):bitstring.
+fun pk(skey):pkey.
+
+fun pair(bitstring,bitstring):bitstring.
+fun proj1(bitstring):bitstring
+reduc forall x,y:bitstring; proj1(pair(x,y)) = x.
+fun proj2(bitstring):bitstring
+reduc forall x,y:bitstring; proj2(pair(x,y)) = y.
+
+fun dec(bitstring,skey):bitstring
+reduc forall u:bitstring, k:skey, r:rand; dec(aenc(u,pk(k),r),k) = u.
+
+free ko:bitstring.
+
+let A(sk_a:skey,pkb:pkey) =
+  new n:bitstring;
+  new r:rand;
+  out(c,aenc((pk(sk_a),n),pkb,r));
+  in(c,z:bitstring);
+  let z1 = dec(z,sk_a) in
+  if z1 = n
+  then 0
+  else 0.
+
+let B(sk_b:skey) =
+  new r':rand;
+  in(c,x:bitstring);
+  (* let y0 = dec(x,sk_b) in
+     let y1 = \pi_1(y0) in
+     let y2 = \pi_2(y0) in
+        out(c,aenc(y2,y1,r')); 0
+      else out(c,ko)
+      else out(c,ko)
+      else out(c,ko).
+     *)
+  let (y1:pkey,y2:bitstring) = dec(x,sk_b) in (
+    out(c,aenc(y2,y1,r')); 0
+  )
+  else (
+    out(c,ko)
+  ).
+
+process
+  new sk_a:skey;
+  new sk_b:skey;
+  out(c,(pk(sk_a),pk(sk_b)));
+  (A(sk_a,pk(sk_b)) | B(sk_b) )

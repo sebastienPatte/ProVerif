@@ -1,0 +1,70 @@
+free c:channel.
+
+type pkey.
+type skey.
+type rand.
+
+fun aenc(bitstring,pkey,rand):bitstring.
+fun pk(skey):pkey.
+
+fun dec(bitstring,skey):bitstring
+reduc forall u:bitstring, k:skey, r:rand; dec(aenc(u,pk(k),r),k) = u.
+
+letfun enc(x:bitstring,k:pkey) = new r:rand; aenc(x,k,r).
+
+event begin_a(bitstring,pkey,pkey).
+event begin_b(bitstring,pkey,pkey).
+event end_a(bitstring,pkey,pkey).
+event end_b(bitstring,pkey,pkey).
+
+event HonestKey(pkey).
+
+event SanityCheck1.
+event SanityCheck2.
+
+let A(sk_a:skey,pkb:pkey) =
+  new na:bitstring;
+  event begin_a(na,pk(sk_a),pkb);
+  out(c,enc((na,pk(sk_a)),pkb));
+  in(c,z:bitstring);
+  let (=na,xnb:bitstring,=pkb) = dec(z,sk_a) in
+  out(c,enc(xnb,pkb));
+  event end_a(xnb,pk(sk_a),pkb);
+  event SanityCheck1.
+
+let B(sk_b:skey) =
+  in(c,x:bitstring);
+  let (xna:bitstring,xpka:pkey) = dec(x,sk_b) in
+  new nb:bitstring;
+  event begin_b(nb,xpka,pk(sk_b));
+  out(c,enc((xna,nb,pk(sk_b)),xpka));
+  in(c,z:bitstring);
+  if dec(z,sk_b) = nb then
+  event end_b(xna,xpka,pk(sk_b));
+  event SanityCheck2.
+
+query x:bitstring,y,z:pkey; event(end_a(x,y,z)) && event(HonestKey(z)) ==> event(begin_b(x,y,z)).
+query x:bitstring,y,z:pkey; event(end_b(x,y,z)) && event(HonestKey(y)) ==> event(begin_a(x,y,z)).
+
+query event(SanityCheck1).
+query event(SanityCheck2).
+
+table honest_keys(skey).
+
+let gen_honest_key =
+  new sk:skey;
+  event HonestKey(pk(sk));
+  insert honest_keys(sk);
+  out(c,pk(sk)).
+
+let runA =
+  get honest_keys(ska) in
+  in(c,pkb:pkey);
+  A(ska,pkb).
+
+let runB =
+  get honest_keys(skb) in
+  B(skb).
+
+process
+  ! gen_honest_key | ! runA | ! runB

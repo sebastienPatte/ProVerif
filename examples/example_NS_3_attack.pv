@@ -1,0 +1,58 @@
+free c:channel.
+
+type pkey.
+type skey.
+type rand.
+
+fun aenc(bitstring,pkey,rand):bitstring.
+fun pk(skey):pkey.
+
+fun dec(bitstring,skey):bitstring
+reduc forall u:bitstring, k:skey, r:rand; dec(aenc(u,pk(k),r),k) = u.
+
+event begin_a(bitstring,pkey,pkey).
+event begin_b(bitstring,pkey,pkey).
+event end_a(bitstring,pkey,pkey).
+event end_b(bitstring,pkey,pkey).
+
+event HonestKey(pkey).
+
+let A(sk_a:skey,pkb:pkey) =
+  new na:bitstring;
+  new r:rand;
+  event begin_a(na,pk(sk_a),pkb);
+  out(c,aenc((na,pk(sk_a)),pkb,r));
+  in(c,z:bitstring);
+  let (xna:bitstring,xnb:bitstring) = dec(z,sk_a) in
+  if xna = na
+  then
+    new r':rand;
+    out(c,aenc(xnb,pkb,r'));
+    event end_a(xnb,pk(sk_a),pkb)
+  else 0.
+
+let B(sk_b:skey) =
+  in(c,x:bitstring);
+  let (xna:bitstring,xpka:pkey) = dec(x,sk_b) in
+  new r':rand;
+  new nb:bitstring;
+  event begin_b(nb,xpka,pk(sk_b));
+  out(c,aenc((xna,nb),xpka,r'));
+  in(c,z:bitstring);
+  if dec(z,sk_b) = nb
+  then
+    event end_b(xna,xpka,pk(sk_b))
+  else 0.
+
+query x:bitstring,y,z:pkey; event(end_a(x,y,z)) && event(HonestKey(z)) ==> event(begin_b(x,y,z)).
+query x:bitstring,y,z:pkey; event(end_b(x,y,z)) && event(HonestKey(y)) ==> event(begin_a(x,y,z)).
+
+process
+  new sk_a:skey;
+  new sk_b:skey;
+  event HonestKey(pk(sk_a));
+  event HonestKey(pk(sk_b));
+  out(c,(pk(sk_a),pk(sk_b)));
+  new sk_c:skey;
+  out(c,sk_c);
+  (A(sk_a,pk(sk_c)) | B(sk_b))

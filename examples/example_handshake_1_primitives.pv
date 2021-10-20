@@ -1,0 +1,11 @@
+type pkey.
+type skey.
+type rand.
+
+fun aenc(bitstring,pkey,rand):bitstring.
+fun pk(skey):pkey.
+
+fun dec(bitstring,skey):bitstring
+reduc forall u:bitstring, k:skey, r:rand; dec(aenc(u,pk(k),r),k) = u.
+
+process 0

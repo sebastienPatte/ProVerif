@@ -1,0 +1,40 @@
+free c:channel.
+
+type pkey.
+type skey.
+type rand.
+
+fun aenc(bitstring,pkey,rand):bitstring.
+fun pk(skey):pkey.
+
+fun dec(bitstring,skey):bitstring
+reduc forall u:bitstring, k:skey, r:rand; dec(aenc(u,pk(k),r),k) = u.
+
+event eva(bitstring,pkey,pkey).
+event evb(bitstring,pkey,pkey).
+
+let A(sk_a:skey,pkb:pkey) =
+  new n:bitstring;
+  new r:rand;
+  out(c,aenc((pk(sk_a),n),pkb,r));
+  in(c,z:bitstring);
+  let z1 = dec(z,sk_a) in
+  if z1 = n
+  then event eva(n,pkb,pk(sk_a))
+  else 0.
+
+let B(sk_b:skey) =
+  new r':rand;
+  in(c,x:bitstring);
+  let (y1:pkey,y2:bitstring) = dec(x,sk_b) in
+  event evb(y2,pk(sk_b),y1);
+  out(c,aenc(y2,y1,r')).
+
+query attacker(new n).
+query x:bitstring,y,z:pkey; event(eva(x,y,z)) ==> event(evb(x,y,z)).
+
+process
+  new sk_a:skey;
+  new sk_b:skey;
+  out(c,(pk(sk_a),pk(sk_b)));
+  (!A(sk_a,pk(sk_b)) | !B(sk_b))
