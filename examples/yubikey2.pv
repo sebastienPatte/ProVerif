@@ -1,0 +1,63 @@
+free c:channel.
+
+type key.
+
+fun enc(bitstring,key):bitstring.
+fun dec(bitstring,key):bitstring
+reduc forall x:bitstring, k:key; dec(enc(x,k),k) = x.
+
+event Login(bitstring,nat).
+event Press(bitstring,nat).
+
+let client(d_client:channel,
+	secret_id:bitstring,
+	pub_id:bitstring,
+	k:key) =
+
+	in(d_client, nb_click:nat); (*lire sur la cellule*)
+	event Press(secret_id, nb_click);
+	new n:bitstring;
+	new nr:bitstring;
+	out(c,(pub_id,n,enc((secret_id,nb_click,nr),k)));
+	out(d_client,nb_click+1) (*ecrire la nouvelle valeur*)
+.
+
+let serveur(d_server:channel,
+	secret_id:bitstring,
+	pub_id:bitstring,
+	k:key) =
+
+	in(d_server,(v_client:nat,nb_login:nat)); (*lire sur la cellule*)
+
+	in(c,(x_pub_id:bitstring,n:bitstring,cipher:bitstring));
+	if x_pub_id = pub_id
+	then 
+		let (x_secret_id:bitstring, x_nb_click:nat, nr:bitstring) = dec(cipher,k) in
+			if x_secret_id = secret_id && x_nb_click > v_client
+			then
+				event Login(secret_id,x_nb_click);
+				out(d_server,(x_nb_click,nb_login+1))
+			else out(d_server,(v_client,nb_login)) (*valeur non changée laus unlock la cellule*)
+		else out(d_server,(v_client,nb_login)) (*valeur non changée laus unlock la cellule*)
+	else out(d_server,(v_client,nb_login)) (*valeur non changée laus unlock la cellule*)
+.
+query secret_id:bitstring, nb_click:nat;
+	event(Login(secret_id,nb_click)) ==> event(Press(secret_id,nb_click))
+.
+
+process 
+	!
+		new k:key;
+		new secret_id:bitstring;
+		new pub_id:bitstring;
+		(
+			(*client*)
+			new d_client:channel;
+				out(d_client,1)
+			| !client(d_client,secret_id,pub_id,k)
+		) | (
+			(*serveur*)
+			new d_server:channel;
+				out(d_server,(0,0))
+			| !serveur(d_server,secret_id,pub_id,k)
+		)

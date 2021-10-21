@@ -1,0 +1,8 @@
+event Login(nat).
+
+query x:nat; event(Login(x+1)) ==> envent(Login(x)).
+
+process 
+	new d:channel;
+		out(d,v_init)
+	|! in(d,x:nat); event Login(x); out(d,x+1)
