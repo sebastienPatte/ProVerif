@@ -1,0 +1,54 @@
+free c:channel.
+
+type host.
+type key.
+type nonce.
+
+fun senc(bitstring,key):bitstring.
+
+fun sdec(bitstring,key):bitstring
+reduc forall x:bitstring, k:key; sdec(senc(x,k),k) = x.
+
+table DB_keys(host,key).
+
+
+
+let Pinit(A:host, aB:host) =
+	out(c,A);
+	in(c,yn:nonce);
+	get DB_keys(iA,kAS) suchthat A=iA in
+	out(c,senc((A,aB,yn), kAS)).
+	
+
+let Precv(B:host) =
+	in(c,yA:host);
+	new nb:bitstring;
+	new n:nonce;
+	out(c,n);
+	in(c,x:bitstring);
+	get DB_keys(iB,kBS) suchthat B=iB in
+	out(c, (B, senc((yA,B,x), kBS)));
+	in(c, z:bitstring);
+	let (mA:host, mB:host, mn:nonce) = sdec(z, kBS) in
+	if mA = yA && mB = B && mn = n 
+	then 0
+	else 0.
+
+
+let Psrv() = 
+	in(c,z:bitstring);
+	let (zB:host,x:bitstring) = z in
+	get DB_keys(iB,kBS) suchthat zB=iB in
+	let (xA:host, xB:host, x2:bitstring) = sdec(x,kBS) in
+	get DB_keys(iA,kAS) suchthat xA=iA in
+	let m:bitstring = sdec(x2, kAS) in
+	out(c, senc(m,kBS)).
+
+process
+	new iA:host;
+	new iB:host;
+	new ikAS:key;
+	new ikBS:key;
+	insert DB_keys(iA, ikAS);
+	insert DB_keys(iB, ikBS);
+	Pinit(iA,iB) | Precv(iB) | Psrv()

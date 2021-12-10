@@ -1,0 +1,78 @@
+free c: channel.
+
+type rand.
+type seed.
+
+(* Symmetric encryption *)
+type key.
+fun senc(bitstring, key, rand): bitstring.
+
+fun sdec(bitstring, key): bitstring
+reduc forall x:bitstring, r:rand, k:key; sdec(senc(x,k,r),k) = x.
+
+(* Asymmetric encryption *)
+type pkey.
+type dkey.
+fun pk(seed):pkey.
+fun dk(seed):dkey.
+fun aenc(bitstring, pkey, rand): bitstring.
+
+fun adec(bitstring, dkey): bitstring
+reduc forall x:bitstring, r:rand, s:seed; adec(aenc(x,pk(s),r),dk(s)) = x.
+
+(* Digital signature *)
+type vkey.
+type skey.
+fun vk(seed):vkey.
+fun sk(seed):skey.
+fun sign(bitstring,skey):bitstring.
+
+fun getm(bitstring):bitstring
+reduc forall x:bitstring, y:skey; getm(sign(x,y)) = x.
+
+fun check(bitstring,vkey):bool
+reduc forall x:bitstring, y:seed; check(sign(x,sk(y)),vk(y)) = true.
+
+(* Id to keys *)
+type id.
+fun Id(seed):id.
+
+fun getvk(id):vkey
+reduc forall x:seed; getvk(Id(x)) = vk(x).
+
+fun getpk(id):pkey
+reduc forall x:seed; getpk(Id(x)) = pk(x).
+
+(* Type convertor *)
+fun bok(key):bitstring [typeConverter].
+fun kob(bitstring):key [typeConverter].
+
+(* Description of the protocols - Corresponds to answer of answer 1 *)
+
+let PA(rA:seed,idB:id) =
+  new k:key;
+  new r:rand;
+  out(c,(Id(rA),aenc(sign(bok(k),sk(rA)),getpk(idB),r)));
+  in(c,x:bitstring);
+  let s = sdec(x,k) in
+  0.
+
+let PB(rB:seed,idA:id) =
+  in(c,(xid:id,x:bitstring));
+  if xid = idA then
+  let sig = adec(x,dk(rB)) in
+  if check(sig,getvk(idA)) then
+  let k:key = kob(getm(sig)) in
+  new r:rand;
+  new s:bitstring;
+  out(c,senc(s,k,r)).
+
+free rA,rB:seed [private].
+free rC:seed.
+
+query attacker(new s).
+
+process
+  out(c,Id(rA));
+  out(c,Id(rB));
+  (PA(rA,Id(rC)) | PB(rB,Id(rA)))

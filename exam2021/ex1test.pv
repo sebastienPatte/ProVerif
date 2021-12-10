@@ -1,0 +1,57 @@
+free c:channel.
+
+(*set ignoreTypes = false.*)
+
+type host.
+type key.
+type nonce.
+
+fun senc(bitstring,key):bitstring.
+
+fun sdec(bitstring,key):bitstring
+reduc forall x:bitstring, k:key; sdec(senc(x,k),k) = x.
+
+table DB_keys(host,key).
+
+event ev_init(host).
+event ev_recv(host).
+
+let Pinit(A:host, aB:host) =	
+	event ev_init(A);
+	out(c,A);
+	in(c,yn:nonce);
+	get DB_keys(iA,kAS) suchthat A=iA in
+	out(c,senc((A,aB,yn), kAS)).
+	
+
+let Precv(B:host) =
+	in(c,yA:host);
+	new n:nonce;
+	out(c,n);
+	in(c,x:bitstring);
+	get DB_keys(iB,kBS) suchthat B=iB in
+	out(c, (B, senc((yA,B,x), kBS)));
+	in(c, z:bitstring);
+	let (mA:host, mB:host, mn:nonce) = sdec(z, kBS) in
+	if mA = yA && mB = B && mn = n 
+	then event ev_recv(mA)
+	else 0.
+
+
+let Psrv() = 
+	in(c,z:bitstring);
+	let (zB:host,x:bitstring) = z in
+	get DB_keys(iB,kBS) suchthat zB=iB in
+	let (xA:host, xB:host, x2:bitstring) = sdec(x,kBS) in
+	get DB_keys(iA,kAS) suchthat xA=iA in
+	let m:bitstring = sdec(x2, kAS) in
+	out(c, senc(m,kBS)).
+
+query h:host; event(ev_recv(h)) ==> event(ev_init(h)).
+
+process
+	new iB:host;
+	new ikBS:key;
+	insert DB_keys(iB, ikBS);
+	out(c,iB);
+	Precv(iB) 
