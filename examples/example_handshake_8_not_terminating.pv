@@ -1,3 +1,5 @@
+set traceDisplay=long.
+
 free c:channel.
 
 type pkey.
